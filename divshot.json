@@ -1,0 +1,6 @@
+{
+  "name": "mch-shmup-123495234",
+  "root": "./",
+  "clean_urls": true,
+  "error_page": "error.html"
+}

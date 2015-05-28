@@ -1,6 +1,5 @@
 
 BasicGame.Game = function (game) {
-
 };
 
 BasicGame.Game.prototype = {
@@ -15,13 +14,32 @@ BasicGame.Game.prototype = {
   create: function () {
     this.sea = this.add.tileSprite(0, 0, 800, 600, 'sea');
 
-    this.enemy = this.add.sprite(400, 400, 'enemy');
-    this.enemy.anchor.setTo(.5, .5);
-    this.enemy.animations.add('fly', [0,1,2], 20, true);
-    this.enemy.play('fly');
-    this.physics.enable(this.enemy, Phaser.Physics.ARCADE);
+    this.enemyPool = this.add.group();
+    this.enemyPool.enableBody = true;
+    this.enemyPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.enemyPool.createMultiple(100, 'enemy');
+    this.enemyPool.setAll('anchor.x', 0.5);
+    this.enemyPool.setAll('anchor.y', 0.5);
+    this.enemyPool.setAll('outOfBoundsKill', true);
+    this.enemyPool.setAll('checkWorldBounds', true);
 
-    this.bullets = [];
+    this.enemyPool.forEach(function(enemy){
+      enemy.animations.add('fly', [0,1,2], 20, true);
+    });
+
+    this.nextEnemyAt = 0;
+    this.enemyDelay = 1000;
+
+
+    this.bulletPool = this.add.group();
+    this.bulletPool.enableBody = true;
+    this.bulletPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.bulletPool.createMultiple(100, 'bullet');
+    this.bulletPool.setAll('anchor.x', 0.5);
+    this.bulletPool.setAll('anchor.y', 0.5);
+    this.bulletPool.setAll('outOfBoundsKill', true);
+    this.bulletPool.setAll('checkWorldBounds', true);
+
     this.nextShotAt = 0;
     this.shotDelay = 100;
 
@@ -31,7 +49,7 @@ BasicGame.Game.prototype = {
     this.player.play('fly');
     this.physics.enable(this.player, Phaser.Physics.ARCADE);
     this.player.body.collideWorldBounds = true;
-    this.player.speed = 200;
+    this.player.speed = 250;
     this.player.bulletSpeed = 400;
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -50,10 +68,19 @@ BasicGame.Game.prototype = {
       this.instructions.destroy();
     }
 
-    this.sea.y += 0.2;
-    for (var i=0; i < this.bullets.length; i++){
-      this.physics.arcade.overlap(this.bullets[i], this.enemy, this.enemyHit, null, this);
+    if (this.enemyPool.countDead() > 0 &&
+      this.time.now > this.nextEnemyAt){
+      var enemy = this.enemyPool.getFirstExists(false);
+      enemy.reset(this.rnd.integerInRange(50, 750), 0);
+      enemy.body.velocity.y = this.rnd.integerInRange(10, 90);
+      enemy.play('fly');
+      this.nextEnemyAt += this.enemyDelay;
+      //this.enemyDelay *= .9;
     }
+
+    this.sea.tilePosition.y += 0.2;
+
+    this.physics.arcade.overlap(this.bulletPool, this.enemyPool, this.enemyHit, null, this);
 
     this.player.body.velocity.x = 0;
     this.player.body.velocity.y = 0;
@@ -90,16 +117,19 @@ BasicGame.Game.prototype = {
       return;
     }
 
-    var bullet = this.add.sprite(this.player.x, this.player.y - 20, 'bullet');
-    bullet.anchor.setTo(.5, .5);
-    this.physics.enable(bullet, Phaser.Physics.ARCADE);
-    bullet.body.velocity.y = -this.player.bulletSpeed;
-    this.bullets.push(bullet);
-    this.nextShotAt = this.time.now + this.shotDelay;
+    if (this.bulletPool.countDead() === 0){
+      return;
+    }
 
+    console.log('firing');
+
+    var bullet = this.bulletPool.getFirstExists(false);
+    bullet.reset(this.player.x, this.player.y - 20);
+    bullet.body.velocity.y = -this.player.bulletSpeed;
+    this.nextShotAt = this.time.now + this.shotDelay;
   },
 
-  enemyHit: function(bullet, enemy) {
+  enemyHit: function(bullet, enemy){
     console.log('Hit!');
     bullet.kill();
     enemy.kill();
@@ -114,6 +144,7 @@ BasicGame.Game.prototype = {
   render: function() {
     //this.game.debug.body(this.enemy);
     //this.game.debug.body(this.bullet);
+
   },
 
   quitGame: function (pointer) {
