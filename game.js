@@ -12,8 +12,35 @@ BasicGame.Game.prototype = {
   },
 
   create: function () {
-    this.sea = this.add.tileSprite(0, 0, 800, 600, 'sea');
 
+    this.setupBackground();
+    this.setupPlayer();
+    this.setupEnemies();
+    this.setupBullets();
+    this.setupExplosions();
+    this.setupText();
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+  },
+
+  setupBackground: function(){
+    this.sea = this.add.tileSprite(0, 0, this.game.width, this.game.height, 'sea');
+    this.sea.autoScroll(0, 12);
+  },
+
+  setupPlayer: function(){
+    this.player = this.add.sprite(100, 500, 'player');
+    this.player.anchor.setTo(.5, .5);
+    this.player.animations.add('fly', [0,1,2], 20, true);
+    this.player.play('fly');
+    this.physics.enable(this.player, Phaser.Physics.ARCADE);
+    this.player.body.collideWorldBounds = true;
+    this.player.speed = 250;
+    this.player.bulletSpeed = 400;
+    this.player.body.setSize(20, 20, 0, -5);
+  },
+
+  setupEnemies: function(){
     this.enemyPool = this.add.group();
     this.enemyPool.enableBody = true;
     this.enemyPool.physicsBodyType = Phaser.Physics.ARCADE;
@@ -29,11 +56,10 @@ BasicGame.Game.prototype = {
 
     this.nextEnemyAt = 0;
     this.enemyDelay = 1000;
+  },
 
-
-    this.bulletPool = this.add.group();
-    this.bulletPool.enableBody = true;
-    this.bulletPool.physicsBodyType = Phaser.Physics.ARCADE;
+  setupBullets: function(){
+    this.bulletPool = this.add.group(); this.bulletPool.enableBody = true; this.bulletPool.physicsBodyType = Phaser.Physics.ARCADE;
     this.bulletPool.createMultiple(100, 'bullet');
     this.bulletPool.setAll('anchor.x', 0.5);
     this.bulletPool.setAll('anchor.y', 0.5);
@@ -42,7 +68,9 @@ BasicGame.Game.prototype = {
 
     this.nextShotAt = 0;
     this.shotDelay = 100;
+  },
 
+  setupExplosions: function(){
     this.explosionPool = this.add.group();
     this.explosionPool.createMultiple(100, 'explosion');
     this.explosionPool.setAll('anchor.x', 0.5);
@@ -50,20 +78,9 @@ BasicGame.Game.prototype = {
     this.explosionPool.forEach(function(explosion){
       explosion.animations.add('boom');
     });
+  },
 
-
-    this.player = this.add.sprite(100, 500, 'player');
-    this.player.anchor.setTo(.5, .5);
-    this.player.animations.add('fly', [0,1,2], 20, true);
-    this.player.play('fly');
-    this.physics.enable(this.player, Phaser.Physics.ARCADE);
-    this.player.body.collideWorldBounds = true;
-    this.player.speed = 250;
-    this.player.bulletSpeed = 400;
-    this.player.body.setSize(20, 20, 0, -5);
-
-    this.cursors = this.input.keyboard.createCursorKeys();
-
+  setupText: function(){
     this.instructions = this.add.text( 400, 500, 
       'Use Arrow Keys to Move, Press Z to Fire\n' + 
       'Tapping/clicking does both', 
@@ -72,6 +89,7 @@ BasicGame.Game.prototype = {
     this.instructions.anchor.setTo(0.5, 0.5);
     this.instExpire = this.time.now + 10000;
   },
+
 
   update: function () {
      this.checkCollisions();
