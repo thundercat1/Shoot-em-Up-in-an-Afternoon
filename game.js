@@ -25,18 +25,17 @@ BasicGame.Game.prototype = {
 
   setupBackground: function(){
     this.sea = this.add.tileSprite(0, 0, this.game.width, this.game.height, 'sea');
-    this.sea.autoScroll(0, 12);
+    this.sea.autoScroll(0, BasicGame.SEA_SCROLL_SPEED);
   },
 
   setupPlayer: function(){
-    this.player = this.add.sprite(100, 500, 'player');
+    this.player = this.add.sprite(this.game.width/2, this.game.height-50, 'player');
     this.player.anchor.setTo(.5, .5);
     this.player.animations.add('fly', [0,1,2], 20, true);
     this.player.play('fly');
     this.physics.enable(this.player, Phaser.Physics.ARCADE);
     this.player.body.collideWorldBounds = true;
-    this.player.speed = 250;
-    this.player.bulletSpeed = 400;
+    this.player.speed = BasicGame.PLAYER_SPEED;
     this.player.body.setSize(20, 20, 0, -5);
   },
 
@@ -67,7 +66,7 @@ BasicGame.Game.prototype = {
     this.bulletPool.setAll('checkWorldBounds', true);
 
     this.nextShotAt = 0;
-    this.shotDelay = 100;
+    this.shotDelay = BasicGame.SHOT_DELAY;
   },
 
   setupExplosions: function(){
@@ -81,13 +80,13 @@ BasicGame.Game.prototype = {
   },
 
   setupText: function(){
-    this.instructions = this.add.text( 400, 500, 
+    this.instructions = this.add.text(this.game.width / 2, this.game.height - 100, 
       'Use Arrow Keys to Move, Press Z to Fire\n' + 
       'Tapping/clicking does both', 
       { font: '20px monospace', fill: '#fff', align: 'center' }
     );
     this.instructions.anchor.setTo(0.5, 0.5);
-    this.instExpire = this.time.now + 10000;
+    this.instExpire = this.time.now + BasicGame.INSTRUCTION_EXPIRE;
   },
 
 
@@ -108,10 +107,11 @@ BasicGame.Game.prototype = {
     if (this.enemyPool.countDead() > 0 &&
       this.time.now > this.nextEnemyAt){
       var enemy = this.enemyPool.getFirstExists(false);
-      enemy.reset(this.rnd.integerInRange(50, 750), 0);
-      enemy.body.velocity.y = this.rnd.integerInRange(10, 90);
+      enemy.reset(this.rnd.integerInRange(50, this.game.width-50), 0);
+      enemy.body.velocity.y = this.rnd.integerInRange(
+        BasicGame.ENEMY_MIN_Y_VELOCITY, BasicGame.ENEMY_MAX_Y_VELOCITY);
       enemy.play('fly');
-      this.nextEnemyAt += this.enemyDelay;
+      this.nextEnemyAt += BasicGame.SPAWN_ENEMY_DELAY;
     }
   },
 
@@ -163,7 +163,7 @@ BasicGame.Game.prototype = {
 
     var bullet = this.bulletPool.getFirstExists(false);
     bullet.reset(this.player.x, this.player.y - 20);
-    bullet.body.velocity.y = -this.player.bulletSpeed;
+    bullet.body.velocity.y = -BasicGame.BULLET_VELOCITY;
     this.nextShotAt = this.time.now + this.shotDelay;
   },
 
