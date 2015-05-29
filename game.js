@@ -43,6 +43,15 @@ BasicGame.Game.prototype = {
     this.nextShotAt = 0;
     this.shotDelay = 100;
 
+    this.explosionPool = this.add.group();
+    this.explosionPool.createMultiple(100, 'explosion');
+    this.explosionPool.setAll('anchor.x', 0.5);
+    this.explosionPool.setAll('anchor.y', 0.5);
+    this.explosionPool.forEach(function(explosion){
+      explosion.animations.add('boom');
+    });
+
+
     this.player = this.add.sprite(100, 500, 'player');
     this.player.anchor.setTo(.5, .5);
     this.player.animations.add('fly', [0,1,2], 20, true);
@@ -51,6 +60,7 @@ BasicGame.Game.prototype = {
     this.player.body.collideWorldBounds = true;
     this.player.speed = 250;
     this.player.bulletSpeed = 400;
+    this.player.body.setSize(20, 20, 0, -5);
 
     this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -75,12 +85,12 @@ BasicGame.Game.prototype = {
       enemy.body.velocity.y = this.rnd.integerInRange(10, 90);
       enemy.play('fly');
       this.nextEnemyAt += this.enemyDelay;
-      //this.enemyDelay *= .9;
     }
 
     this.sea.tilePosition.y += 0.2;
 
     this.physics.arcade.overlap(this.bulletPool, this.enemyPool, this.enemyHit, null, this);
+    this.physics.arcade.overlap(this.player, this.enemyPool, this.playerHit, null, this);
 
     this.player.body.velocity.x = 0;
     this.player.body.velocity.y = 0;
@@ -113,7 +123,7 @@ BasicGame.Game.prototype = {
   },
 
   fire: function(){
-    if (this.nextShotAt > this.time.now){
+    if (this.nextShotAt > this.time.now || !this.player.alive){
       return;
     }
 
@@ -121,24 +131,34 @@ BasicGame.Game.prototype = {
       return;
     }
 
-    console.log('firing');
-
     var bullet = this.bulletPool.getFirstExists(false);
     bullet.reset(this.player.x, this.player.y - 20);
     bullet.body.velocity.y = -this.player.bulletSpeed;
     this.nextShotAt = this.time.now + this.shotDelay;
   },
 
+  explode: function(sprite){
+    if (this.explosionPool.countDead() === 0){
+      return;
+    }
+    var explosion = this.explosionPool.getFirstExists(false);
+    explosion.reset(sprite.x, sprite.y);
+    explosion.play('boom', 15, false, true);
+  },
+
   enemyHit: function(bullet, enemy){
-    console.log('Hit!');
+    console.log(enemy.key);
     bullet.kill();
     enemy.kill();
+    this.explode(enemy);
+  },
 
-    var explosion = this.add.sprite(enemy.x, enemy.y, 'explosion');
-    explosion.anchor.setTo(.5, .5);
-    explosion.animations.add('explode');
-    explosion.play('explode', 15, false, true);
-
+  playerHit: function(player, enemy){
+    console.log(enemy.key);
+    console.log(player.key);
+    enemy.kill();
+    player.kill();
+    this.explode(player);
   },
 
   render: function() {
