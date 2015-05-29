@@ -74,10 +74,19 @@ BasicGame.Game.prototype = {
   },
 
   update: function () {
-    if (this.time.now > this.instExpire){
-      this.instructions.destroy();
-    }
+     this.checkCollisions();
+     this.spawnEnemies();
+     this.processPlayerInput();
+     this.processDelayedEffects();
 
+  },
+
+  checkCollisions: function(){
+    this.physics.arcade.overlap(this.bulletPool, this.enemyPool, this.enemyHit, null, this);
+    this.physics.arcade.overlap(this.player, this.enemyPool, this.playerHit, null, this);
+  },
+
+  spawnEnemies: function(){
     if (this.enemyPool.countDead() > 0 &&
       this.time.now > this.nextEnemyAt){
       var enemy = this.enemyPool.getFirstExists(false);
@@ -86,12 +95,9 @@ BasicGame.Game.prototype = {
       enemy.play('fly');
       this.nextEnemyAt += this.enemyDelay;
     }
+  },
 
-    this.sea.tilePosition.y += 0.2;
-
-    this.physics.arcade.overlap(this.bulletPool, this.enemyPool, this.enemyHit, null, this);
-    this.physics.arcade.overlap(this.player, this.enemyPool, this.playerHit, null, this);
-
+  processPlayerInput: function(){
     this.player.body.velocity.x = 0;
     this.player.body.velocity.y = 0;
 
@@ -120,6 +126,12 @@ BasicGame.Game.prototype = {
       this.fire();
     }
 
+  },
+
+  processDelayedEffects: function(){
+    if (this.time.now > this.instExpire){
+      this.instructions.destroy();
+    }
   },
 
   fire: function(){
