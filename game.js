@@ -9,6 +9,7 @@ BasicGame.Game.prototype = {
     this.load.spritesheet('enemy', 'assets/enemy.png', 32, 32);
     this.load.spritesheet('explosion', 'assets/explosion.png', 32, 32);
     this.load.spritesheet('player', 'assets/player.png', 64, 64);
+    this.load.image('titlepage', 'assets/titlepage.png');
   },
 
   create: function () {
@@ -110,16 +111,30 @@ BasicGame.Game.prototype = {
   },
 
   displayEnd: function(win){
-    if (this.endDisplay && this.endDisplay.exists){
+    if (this.endText && this.endText.exists){
       return;
     }
     console.log('Displaying end for ' + win);
     var msg = win ? 'You Win!' : 'You Lose...';
     console.log(msg);
-    this.endDisplay = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
+    this.endText = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
       {font: '80px monospace', fill: '#fff', align: 'center'});
 
-    this.endDisplay.anchor.setTo(0.5, 0.5);
+    this.endText.anchor.setTo(0.5, 0.5);
+    this.returnTime = this.time.now + BasicGame.RETURN_MESSAGE_DELAY;
+  },
+
+  displayReturnText: function(){
+    if (this.returnText && this.returnText.exists){
+      return;
+    }
+
+    this.endText.destroy();
+    this.returnTime = null;
+    var msg = 'Press Z or Tap Screen to Continue';
+    this.returnText = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
+      {font: '20px monospace', fill: '#fff', align: 'center'});
+    this.returnText.anchor.setTo(0.5, 0.5);
   },
 
 
@@ -173,7 +188,7 @@ BasicGame.Game.prototype = {
 
     if (this.input.keyboard.isDown(Phaser.Keyboard.Z) ||
       this.input.activePointer.isDown){
-      if (this.endDisplay && this.endDisplay.exists){
+      if (this.returnText && this.returnText.exists){
         this.quit();
       } else {
         this.fire();
@@ -190,20 +205,25 @@ BasicGame.Game.prototype = {
     this.explosionPool.destroy();
     this.instructions.destroy();
     this.scoreText.destroy();
-    this.endDisplay.destroy();
-    //this.returnText.destroy();
+    this.endText.destroy();
+    this.returnText.destroy();
     //  Then let's go back to the main menu.
     this.state.start('MainMenu');
   },
 
   processDelayedEffects: function(){
-    if (this.time.now > this.instExpire){
+    if (this.instructions && this.time.now > this.instExpire){
       this.instructions.destroy();
     }
 
-    if (this.time.now > this.ghostUntil){
+    if (this.ghostUntil && this.time.now > this.ghostUntil){
       this.player.play('fly');
       this.ghostUntil = null;
+    }
+
+    if (this.returnTime && this.time.now > this.returnTime){
+      this.returnTime = null;
+      this.displayReturnText();
     }
   },
 
