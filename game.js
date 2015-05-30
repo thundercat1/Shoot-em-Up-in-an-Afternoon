@@ -109,6 +109,19 @@ BasicGame.Game.prototype = {
       {font: '20px monospace', fill: '#fff', align: 'left'});
   },
 
+  displayEnd: function(win){
+    if (this.endDisplay && this.endDisplay.exists){
+      return;
+    }
+    console.log('Displaying end for ' + win);
+    var msg = win ? 'You Win!' : 'You Lose...';
+    console.log(msg);
+    this.endDisplay = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
+      {font: '80px monospace', fill: '#fff', align: 'center'});
+
+    this.endDisplay.anchor.setTo(0.5, 0.5);
+  },
+
 
   update: function () {
      this.checkCollisions();
@@ -130,7 +143,7 @@ BasicGame.Game.prototype = {
       enemy.body.velocity.y = this.rnd.integerInRange(
         BasicGame.ENEMY_MIN_Y_VELOCITY, BasicGame.ENEMY_MAX_Y_VELOCITY);
       enemy.play('fly');
-      this.nextEnemyAt += BasicGame.SPAWN_ENEMY_DELAY;
+      this.nextEnemyAt = this.time.now + BasicGame.SPAWN_ENEMY_DELAY;
     }
   },
 
@@ -160,9 +173,27 @@ BasicGame.Game.prototype = {
 
     if (this.input.keyboard.isDown(Phaser.Keyboard.Z) ||
       this.input.activePointer.isDown){
-      this.fire();
+      if (this.endDisplay && this.endDisplay.exists){
+        this.quit();
+      } else {
+        this.fire();
+      }
     }
 
+  },
+
+  quit: function(){
+    this.sea.destroy();
+    this.player.destroy();
+    this.enemyPool.destroy();
+    this.bulletPool.destroy();
+    this.explosionPool.destroy();
+    this.instructions.destroy();
+    this.scoreText.destroy();
+    this.endDisplay.destroy();
+    //this.returnText.destroy();
+    //  Then let's go back to the main menu.
+    this.state.start('MainMenu');
   },
 
   processDelayedEffects: function(){
@@ -213,6 +244,9 @@ BasicGame.Game.prototype = {
     } else {
       this.explode(enemy);
       this.addToScore(enemy.reward);
+      if (this.score > 2000){
+        this.displayEnd(true);
+      }
     }
   },
 
@@ -234,6 +268,7 @@ BasicGame.Game.prototype = {
     } else {
       player.kill();
       this.explode(player);
+      this.displayEnd(false);
     }
   },
 
