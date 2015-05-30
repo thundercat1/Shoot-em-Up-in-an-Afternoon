@@ -7,6 +7,7 @@ BasicGame.Game.prototype = {
     this.load.image('sea', 'assets/sea.png');
     this.load.image('bullet', 'assets/bullet.png');
     this.load.spritesheet('enemy', 'assets/enemy.png', 32, 32);
+    this.load.spritesheet('shooter', 'assets/shooting-enemy.png', 32, 32);
     this.load.spritesheet('explosion', 'assets/explosion.png', 32, 32);
     this.load.spritesheet('player', 'assets/player.png', 64, 64);
     this.load.image('titlepage', 'assets/titlepage.png');
@@ -52,6 +53,9 @@ BasicGame.Game.prototype = {
   },
 
   setupEnemies: function(){
+    this.enemyDelay = BasicGame.SPAWN_ENEMY_DELAY;
+    this.shooterDelay = BasicGame.SPAWN_SHOOTER_DELAY;
+
     this.enemyPool = this.add.group();
     this.enemyPool.enableBody = true;
     this.enemyPool.physicsBodyType = Phaser.Physics.ARCADE;
@@ -71,12 +75,35 @@ BasicGame.Game.prototype = {
     });
 
     this.nextEnemyAt = 0;
-    this.enemyDelay = 1000;
+
+    this.shooterPool = this.add.group();
+    this.shooterPool.enableBody = true;
+    this.shooterPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.shooterPool.createMultiple(100, 'shooter');
+    this.shooterPool.setAll('anchor.x', 0.5);
+    this.shooterPool.setAll('anchor.y', 0.5);
+    this.shooterPool.setAll('outOfBoundsKill', true);
+    this.shooterPool.setAll('checkWorldBounds', true);
+    this.shooterPool.setAll('reward', BasicGame.SHOOTER_REWARD, false, false, 0, true)
+
+    this.shooterPool.forEach(function(shooter){
+      shooter.animations.add('fly', [0,1,2], 20, true);
+      shooter.animations.add('hit', [3,1,3,2], 20, false);
+      shooter.events.onAnimationComplete.add(function(e){
+        e.play('fly');
+      }, this);
+
+      shooter.nextShotAt = 0;
+    });
+
+    this.nextShooterAt = this.time.now + Phaser.Timer.SECOND * 1;
   },
 
   setupBullets: function(){
-    this.bulletPool = this.add.group(); this.bulletPool.enableBody = true; this.bulletPool.physicsBodyType = Phaser.Physics.ARCADE;
-    this.bulletPool.createMultiple(100, 'bullet');
+    this.bulletPool = this.add.group(); 
+    this.bulletPool.enableBody = true; 
+    this.bulletPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.bulletPool.createMultiple(BasicGame.MAX_PLAYER_BULLETS, 'bullet');
     this.bulletPool.setAll('anchor.x', 0.5);
     this.bulletPool.setAll('anchor.y', 0.5);
     this.bulletPool.setAll('outOfBoundsKill', true);
@@ -84,6 +111,21 @@ BasicGame.Game.prototype = {
 
     this.nextShotAt = 0;
     this.shotDelay = BasicGame.SHOT_DELAY;
+
+
+    this.enemyBulletPool = this.add.group(); 
+    this.enemyBulletPool.enableBody = true; 
+    this.enemyBulletPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.enemyBulletPool.createMultiple(BasicGame.MAX_ENEMY_BULLETS, 'bullet');
+    this.enemyBulletPool.setAll('anchor.x', 0.5);
+    this.enemyBulletPool.setAll('anchor.y', 0.5);
+    this.enemyBulletPool.setAll('outOfBoundsKill', true);
+    this.enemyBulletPool.setAll('checkWorldBounds', true);
+    this.enemyBulletPool.setAll('reward', 0, false, false, 0, true);
+
+    this.nextShotAt = 0;
+    this.shotDelay = BasicGame.SHOT_DELAY;
+
   },
 
   setupExplosions: function(){
@@ -143,29 +185,53 @@ BasicGame.Game.prototype = {
      this.spawnEnemies();
      this.processPlayerInput();
      this.processDelayedEffects();
+     this.enemyFire();
   },
 
   checkCollisions: function(){
     this.physics.arcade.overlap(this.bulletPool, this.enemyPool, this.enemyHit, null, this);
+    this.physics.arcade.overlap(this.bulletPool, this.shooterPool, this.enemyHit, null, this);
+
     this.physics.arcade.overlap(this.player, this.enemyPool, this.playerHit, null, this);
+    this.physics.arcade.overlap(this.player, this.shooterPool, this.playerHit, null, this);
+
+    this.physics.arcade.overlap(this.player, this.enemyBulletPool, this.playerHit, null, this);
   },
 
   spawnEnemies: function(){
+    //spawn vanilla enemies
     if (this.enemyPool.countDead() > 0 &&
       this.time.now > this.nextEnemyAt){
       var enemy = this.enemyPool.getFirstExists(false);
-      enemy.reset(this.rnd.integerInRange(50, this.game.width-50), 0, BasicGame.ENEMY_HEALTH);
-      enemy.body.velocity.y = this.rnd.integerInRange(
-        BasicGame.ENEMY_MIN_Y_VELOCITY, BasicGame.ENEMY_MAX_Y_VELOCITY);
-      enemy.play('fly');
-      this.nextEnemyAt = this.time.now + BasicGame.SPAWN_ENEMY_DELAY;
-    }
-  },
+    enemy.reset(this.rnd.integerInRange(50, this.game.width-50), 0, BasicGame.ENEMY_HEALTH);
+    enemy.body.velocity.y = this.rnd.integerInRange(
+      BasicGame.ENEMY_MIN_Y_VELOCITY, BasicGame.ENEMY_MAX_Y_VELOCITY);
+    enemy.play('fly');
+    this.nextEnemyAt = this.time.now + BasicGame.SPAWN_ENEMY_DELAY;
+  }
+
+    //spawn shooters
+    if (this.shooterPool.countDead() > 0 &&
+      this.time.now > this.nextShooterAt){
+      console.log('Spawning Shooters!');
+    var shooter = this.shooterPool.getFirstExists(false);
+    shooter.reset(this.rnd.integerInRange(50, this.game.width-50), 0, BasicGame.SHOOTER_HEALTH);
+    shooter.play('fly');
+    this.nextShooterAt = this.time.now + BasicGame.SPAWN_SHOOTER_DELAY;
+
+      //enemy.body.velocity.y = this.rnd.integerInRange(
+      //  BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY);
+    shooter.targetX = this.rnd.integerInRange(-10, this.game.width+10);
+    shooter.targetY = this.game.height;
+    shooter.rotation = this.physics.arcade.moveToXY(shooter, shooter.targetX, shooter.targetY,
+      this.rnd.integerInRange(BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY)
+      ) - Math.PI/2;
+  }
+},
 
   processPlayerInput: function(){
     this.player.body.velocity.x = 0;
     this.player.body.velocity.y = 0;
-
     if (!(this.cursors.left.isDown && this.cursors.right.isDown)) {
       if (this.cursors.left.isDown) {
         this.player.body.velocity.x = -this.player.speed;
@@ -240,6 +306,25 @@ BasicGame.Game.prototype = {
     bullet.reset(this.player.x, this.player.y - 20);
     bullet.body.velocity.y = -BasicGame.BULLET_VELOCITY;
     this.nextShotAt = this.time.now + this.shotDelay;
+  },
+
+  enemyFire: function(){
+    this.shooterPool.forEachAlive(function(shooter){
+      if (this.time.now > shooter.nextShotAt && this.enemyBulletPool.countDead() > 0){
+        console.log('shooter firing:');
+        console.log(shooter);
+        shooter.nextShotAt = this.time.now + BasicGame.SHOOTER_SHOT_DELAY;
+        var bullet = this.enemyBulletPool.getFirstExists(false);
+        console.log('firing bullet:');
+        console.log(bullet);
+        bullet.reset(shooter.x, shooter.y);
+        console.log('successfully reset bullet');
+        this.physics.arcade.moveToXY(bullet, shooter.targetX, shooter.targetY,
+          BasicGame.ENEMY_BULLET_VELOCITY);
+
+        console.log('set bullet target');
+      }
+    }, this);
   },
 
   explode: function(sprite){
