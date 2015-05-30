@@ -277,14 +277,15 @@ BasicGame.Game.prototype = {
     }
 
 
-    if (this.weaponLevel == 0){
+    //if (this.weaponLevel == 0){
       if (this.bulletPool.countDead() === 0){
         return;
       }
+      this.nextShotAt = this.time.now + this.shotDelay;
       var bullet = this.bulletPool.getFirstExists(false);
       bullet.reset(this.player.x, this.player.y - 20);
       bullet.body.velocity.y = -BasicGame.BULLET_VELOCITY;
-    } else {
+    //} else {
       if (this.bulletPool.countDead() < this.weaponLevel*2){
         return;
       }
@@ -292,15 +293,16 @@ BasicGame.Game.prototype = {
         //fire bullets in scatter formation
         var bullet = this.bulletPool.getFirstExists(false);
         bullet.reset(this.player.x, this.player.y - 20);
-        this.physics.arcade.velocityFromAngle(-92 - i*4, BasicGame.BULLET_VELOCITY, bullet.body.velocity);
+
+        var bulletSpread = BasicGame.BULLET_SPREAD;
+        this.physics.arcade.velocityFromAngle(-90 - bulletSpread*(i+1), BasicGame.BULLET_VELOCITY, bullet.body.velocity);
 
         var bullet = this.bulletPool.getFirstExists(false);
         bullet.reset(this.player.x, this.player.y - 20);
-        this.physics.arcade.velocityFromAngle(-88 + i*4, BasicGame.BULLET_VELOCITY, bullet.body.velocity);
+        this.physics.arcade.velocityFromAngle(-90 + bulletSpread*(i+1), BasicGame.BULLET_VELOCITY, bullet.body.velocity);
       }
-    }
 
-    this.nextShotAt = this.time.now + this.shotDelay;
+    //}
 
 
   },
