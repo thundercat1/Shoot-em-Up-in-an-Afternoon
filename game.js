@@ -11,6 +11,7 @@ BasicGame.Game.prototype = {
     this.load.spritesheet('explosion', 'assets/explosion.png', 32, 32);
     this.load.spritesheet('player', 'assets/player.png', 64, 64);
     this.load.image('titlepage', 'assets/titlepage.png');
+    this.load.image('powerup1', 'assets/powerup1.png');
   },
 
   create: function () {
@@ -20,6 +21,7 @@ BasicGame.Game.prototype = {
     this.setupEnemies();
     this.setupBullets();
     this.setupExplosions();
+    this.setupPowerUps();
     this.setupText();
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -40,6 +42,7 @@ BasicGame.Game.prototype = {
     this.player.body.collideWorldBounds = true;
     this.player.speed = BasicGame.PLAYER_SPEED;
     this.player.body.setSize(20, 20, 0, -5);
+    this.weaponLevel = 0;
   },
 
   setupPlayerIcons: function(){
@@ -65,6 +68,7 @@ BasicGame.Game.prototype = {
     this.enemyPool.setAll('outOfBoundsKill', true);
     this.enemyPool.setAll('checkWorldBounds', true);
     this.enemyPool.setAll('reward', BasicGame.ENEMY_REWARD, false, false, 0, true)
+    this.enemyPool.setAll('dropRate', BasicGame.ENEMY_DROP_RATE, false, false, 0, true);
 
     this.enemyPool.forEach(function(enemy){
       enemy.animations.add('fly', [0,1,2], 20, true);
@@ -85,6 +89,7 @@ BasicGame.Game.prototype = {
     this.shooterPool.setAll('outOfBoundsKill', true);
     this.shooterPool.setAll('checkWorldBounds', true);
     this.shooterPool.setAll('reward', BasicGame.SHOOTER_REWARD, false, false, 0, true)
+    this.shooterPool.setAll('dropRate', BasicGame.SHOOTER_DROP_RATE, false, false, 0, true);
 
     this.shooterPool.forEach(function(shooter){
       shooter.animations.add('fly', [0,1,2], 20, true);
@@ -96,7 +101,7 @@ BasicGame.Game.prototype = {
       shooter.nextShotAt = 0;
     });
 
-    this.nextShooterAt = this.time.now + Phaser.Timer.SECOND * 1;
+    this.nextShooterAt = this.time.now + Phaser.Timer.SECOND * 5;
   },
 
   setupBullets: function(){
@@ -125,7 +130,6 @@ BasicGame.Game.prototype = {
 
     this.nextShotAt = 0;
     this.shotDelay = BasicGame.SHOT_DELAY;
-
   },
 
   setupExplosions: function(){
@@ -136,6 +140,18 @@ BasicGame.Game.prototype = {
     this.explosionPool.forEach(function(explosion){
       explosion.animations.add('boom');
     });
+  },
+
+  setupPowerUps: function(){
+    this.powerUpPool = this.add.group();
+    this.powerUpPool.enableBody = true;
+    this.powerUpPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.powerUpPool.createMultiple(5, 'powerup1');
+    this.powerUpPool.setAll('anchor.x', 0.5);
+    this.powerUpPool.setAll('anchor.y', 0.5);
+    this.powerUpPool.setAll('outOfBoundsKill', true);
+    this.powerUpPool.setAll('checkWorldBounds', true);
+    this.powerUpPool.setAll('reward', BasicGame.POWERUP_REWARD, false, false, 0, true);
   },
 
   setupText: function(){
@@ -152,40 +168,28 @@ BasicGame.Game.prototype = {
       {font: '20px monospace', fill: '#fff', align: 'left'});
   },
 
-  displayEnd: function(win){
-    if (this.endText && this.endText.exists){
-      return;
-    }
-    console.log('Displaying end for ' + win);
-    var msg = win ? 'You Win!' : 'You Lose...';
-    console.log(msg);
-    this.endText = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
-      {font: '80px monospace', fill: '#fff', align: 'center'});
-
-    this.endText.anchor.setTo(0.5, 0.5);
-    this.returnTime = this.time.now + BasicGame.RETURN_MESSAGE_DELAY;
-  },
-
-  displayReturnText: function(){
-    if (this.returnText && this.returnText.exists){
-      return;
-    }
-
-    this.endText.destroy();
-    this.returnTime = null;
-    var msg = 'Press Z or Tap Screen to Continue';
-    this.returnText = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
-      {font: '20px monospace', fill: '#fff', align: 'center'});
-    this.returnText.anchor.setTo(0.5, 0.5);
-  },
-
-
   update: function () {
      this.checkCollisions();
      this.spawnEnemies();
      this.processPlayerInput();
      this.processDelayedEffects();
      this.enemyFire();
+  },
+
+  processDelayedEffects: function(){
+    if (this.instructions && this.time.now > this.instExpire){
+      this.instructions.destroy();
+    }
+
+    if (this.ghostUntil && this.time.now > this.ghostUntil){
+      this.player.play('fly');
+      this.ghostUntil = null;
+    }
+
+    if (this.returnTime && this.time.now > this.returnTime){
+      this.returnTime = null;
+      this.displayReturnText();
+    }
   },
 
   checkCollisions: function(){
@@ -196,38 +200,43 @@ BasicGame.Game.prototype = {
     this.physics.arcade.overlap(this.player, this.shooterPool, this.playerHit, null, this);
 
     this.physics.arcade.overlap(this.player, this.enemyBulletPool, this.playerHit, null, this);
+
+    this.physics.arcade.overlap(this.player, this.powerUpPool, this.collectPowerUp, null, this);
   },
 
-  spawnEnemies: function(){
-    //spawn vanilla enemies
-    if (this.enemyPool.countDead() > 0 &&
-      this.time.now > this.nextEnemyAt){
-      var enemy = this.enemyPool.getFirstExists(false);
-    enemy.reset(this.rnd.integerInRange(50, this.game.width-50), 0, BasicGame.ENEMY_HEALTH);
-    enemy.body.velocity.y = this.rnd.integerInRange(
-      BasicGame.ENEMY_MIN_Y_VELOCITY, BasicGame.ENEMY_MAX_Y_VELOCITY);
-    enemy.play('fly');
-    this.nextEnemyAt = this.time.now + BasicGame.SPAWN_ENEMY_DELAY;
-  }
+  enemyHit: function(bullet, enemy){
+    //console.log(enemy.key);
+    bullet.kill();
+    this.damageEnemy(enemy, BasicGame.BULLET_DAMAGE);
+  },
 
-    //spawn shooters
-    if (this.shooterPool.countDead() > 0 &&
-      this.time.now > this.nextShooterAt){
-      console.log('Spawning Shooters!');
-    var shooter = this.shooterPool.getFirstExists(false);
-    shooter.reset(this.rnd.integerInRange(50, this.game.width-50), 0, BasicGame.SHOOTER_HEALTH);
-    shooter.play('fly');
-    this.nextShooterAt = this.time.now + BasicGame.SPAWN_SHOOTER_DELAY;
+  playerHit: function(player, enemy){
+    if (this.ghostUntil && this.ghostUntil > this.time.now){
+      return;
+    }
 
-      //enemy.body.velocity.y = this.rnd.integerInRange(
-      //  BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY);
-    shooter.targetX = this.rnd.integerInRange(-10, this.game.width+10);
-    shooter.targetY = this.game.height;
-    shooter.rotation = this.physics.arcade.moveToXY(shooter, shooter.targetX, shooter.targetY,
-      this.rnd.integerInRange(BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY)
-      ) - Math.PI/2;
-  }
-},
+    this.damageEnemy(enemy, BasicGame.CRASH_DAMAGE);
+    this.weaponLevel = 0;
+
+    var life = this.lives.getFirstAlive();
+    if (life !== null){
+      life.kill();
+      this.ghostUntil = this.time.now + BasicGame.PLAYER_GHOST_TIME;
+      player.play('ghost');
+    } else {
+      player.kill();
+      this.explode(player);
+      this.displayEnd(false);
+    }
+  },
+
+  collectPowerUp: function(player, powerUp){
+    if (this.weaponLevel < 5){
+      this.weaponLevel += 1;
+    }
+    console.log('PowerUp Collected: Weapon Level ' + this.weaponLevel);
+    powerUp.kill();
+  },
 
   processPlayerInput: function(){
     this.player.body.velocity.x = 0;
@@ -260,7 +269,163 @@ BasicGame.Game.prototype = {
         this.fire();
       }
     }
+  },
 
+  fire: function(){
+    if (this.nextShotAt > this.time.now || !this.player.alive){
+      return;
+    }
+
+
+    if (this.weaponLevel == 0){
+      if (this.bulletPool.countDead() === 0){
+        return;
+      }
+      var bullet = this.bulletPool.getFirstExists(false);
+      bullet.reset(this.player.x, this.player.y - 20);
+      bullet.body.velocity.y = -BasicGame.BULLET_VELOCITY;
+    } else {
+      if (this.bulletPool.countDead() < this.weaponLevel*2){
+        return;
+      }
+      for (var i = 0; i < this.weaponLevel; i++){
+        //fire bullets in scatter formation
+        var bullet = this.bulletPool.getFirstExists(false);
+        bullet.reset(this.player.x, this.player.y - 20);
+        this.physics.arcade.velocityFromAngle(-92 - i*4, BasicGame.BULLET_VELOCITY, bullet.body.velocity);
+
+        var bullet = this.bulletPool.getFirstExists(false);
+        bullet.reset(this.player.x, this.player.y - 20);
+        this.physics.arcade.velocityFromAngle(-88 + i*4, BasicGame.BULLET_VELOCITY, bullet.body.velocity);
+      }
+    }
+
+    this.nextShotAt = this.time.now + this.shotDelay;
+
+
+  },
+
+  enemyFire: function(){
+    this.shooterPool.forEachAlive(function(shooter){
+      if (this.time.now > shooter.nextShotAt && this.enemyBulletPool.countDead() > 0){
+        //console.log('shooter firing:');
+        //console.log(shooter);
+        shooter.nextShotAt = this.time.now + BasicGame.SHOOTER_SHOT_DELAY;
+        var bullet = this.enemyBulletPool.getFirstExists(false);
+        //console.log('firing bullet:');
+        //console.log(bullet);
+        bullet.reset(shooter.x, shooter.y);
+        //console.log('successfully reset bullet');
+        this.physics.arcade.moveToXY(bullet, shooter.targetX, shooter.targetY,
+          BasicGame.ENEMY_BULLET_VELOCITY);
+
+        //console.log('set bullet target');
+      }
+    }, this);
+  },
+
+  spawnEnemies: function(){
+    //spawn vanilla enemies
+    if (this.enemyPool.countDead() > 0 && this.time.now > this.nextEnemyAt){
+      var enemy = this.enemyPool.getFirstExists(false);
+    enemy.reset(this.rnd.integerInRange(50, this.game.width-50), 0, BasicGame.ENEMY_HEALTH);
+    enemy.body.velocity.y = this.rnd.integerInRange(
+      BasicGame.ENEMY_MIN_Y_VELOCITY, BasicGame.ENEMY_MAX_Y_VELOCITY);
+    enemy.play('fly');
+    this.nextEnemyAt = this.time.now + BasicGame.SPAWN_ENEMY_DELAY;
+    }
+
+    //spawn shooters
+    if (this.shooterPool.countDead() > 0 &&
+      this.time.now > this.nextShooterAt){
+      //console.log('Spawning Shooters!');
+    var shooter = this.shooterPool.getFirstExists(false);
+    shooter.reset(this.rnd.integerInRange(50, this.game.width-50), 0, BasicGame.SHOOTER_HEALTH);
+    shooter.play('fly');
+    this.nextShooterAt = this.time.now + BasicGame.SPAWN_SHOOTER_DELAY;
+
+      //enemy.body.velocity.y = this.rnd.integerInRange(
+      //  BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY);
+    shooter.targetX = this.rnd.integerInRange(-10, this.game.width+10);
+    shooter.targetY = this.game.height;
+    shooter.rotation = this.physics.arcade.moveToXY(shooter, shooter.targetX, shooter.targetY,
+      this.rnd.integerInRange(BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY)
+      ) - Math.PI/2;
+    }
+  },
+
+  explode: function(sprite){
+    if (this.explosionPool.countDead() === 0){
+      return;
+    }
+    var explosion = this.explosionPool.getFirstExists(false);
+    explosion.reset(sprite.x, sprite.y);
+    explosion.play('boom', 15, false, true);
+  },
+
+  damageEnemy: function(enemy, damage){
+    enemy.damage(damage);
+    if (enemy.alive){
+      enemy.play('hit');
+    } else {
+      this.explode(enemy);
+      this.addToScore(enemy.reward);
+      //drop powerup?
+      this.spawnPowerUp(enemy);
+
+      if (this.score >= BasicGame.WINNING_SCORE){
+        this.displayEnd(true);
+        this.shooterPool.destroy();
+        this.enemyPool.destroy();
+        this.enemyBulletPool.destroy();
+      }
+    }
+  },
+
+  spawnPowerUp: function(enemy){
+    if (this.powerUpPool.countDead() <= 0 || this.weaponLevel >= 5){
+      return;
+    }
+    if (this.rnd.frac() < enemy.dropRate){
+      var powerUp = this.powerUpPool.getFirstExists(false);
+      powerUp.reset(enemy.x, enemy.y);
+      powerUp.body.velocity.y = BasicGame.POWERUP_VELOCITY;
+    }
+  },
+
+  addToScore: function(reward){
+    this.score += reward;
+    this.scoreText.text = this.score;
+  },
+
+  render: function() {
+    //this.game.debug.body(this.enemy);
+    //this.game.debug.body(this.bullet);
+  },
+
+  displayEnd: function(win){
+    if (this.endText && this.endText.exists){
+      return;
+    }
+    var msg = win ? 'You Win!' : 'You Lose...';
+    this.endText = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
+      {font: '80px monospace', fill: '#fff', align: 'center'});
+
+    this.endText.anchor.setTo(0.5, 0.5);
+    this.returnTime = this.time.now + BasicGame.RETURN_MESSAGE_DELAY;
+  },
+
+  displayReturnText: function(){
+    if (this.returnText && this.returnText.exists){
+      return;
+    }
+
+    this.endText.destroy();
+    this.returnTime = null;
+    var msg = 'Press Z or Tap Screen to Continue';
+    this.returnText = this.add.text(this.game.width / 2, this.game.height / 2, msg, 
+      {font: '20px monospace', fill: '#fff', align: 'center'});
+    this.returnText.anchor.setTo(0.5, 0.5);
   },
 
   quit: function(){
@@ -275,121 +440,6 @@ BasicGame.Game.prototype = {
     this.returnText.destroy();
     //  Then let's go back to the main menu.
     this.state.start('MainMenu');
-  },
-
-  processDelayedEffects: function(){
-    if (this.instructions && this.time.now > this.instExpire){
-      this.instructions.destroy();
-    }
-
-    if (this.ghostUntil && this.time.now > this.ghostUntil){
-      this.player.play('fly');
-      this.ghostUntil = null;
-    }
-
-    if (this.returnTime && this.time.now > this.returnTime){
-      this.returnTime = null;
-      this.displayReturnText();
-    }
-  },
-
-  fire: function(){
-    if (this.nextShotAt > this.time.now || !this.player.alive){
-      return;
-    }
-
-    if (this.bulletPool.countDead() === 0){
-      return;
-    }
-
-    var bullet = this.bulletPool.getFirstExists(false);
-    bullet.reset(this.player.x, this.player.y - 20);
-    bullet.body.velocity.y = -BasicGame.BULLET_VELOCITY;
-    this.nextShotAt = this.time.now + this.shotDelay;
-  },
-
-  enemyFire: function(){
-    this.shooterPool.forEachAlive(function(shooter){
-      if (this.time.now > shooter.nextShotAt && this.enemyBulletPool.countDead() > 0){
-        console.log('shooter firing:');
-        console.log(shooter);
-        shooter.nextShotAt = this.time.now + BasicGame.SHOOTER_SHOT_DELAY;
-        var bullet = this.enemyBulletPool.getFirstExists(false);
-        console.log('firing bullet:');
-        console.log(bullet);
-        bullet.reset(shooter.x, shooter.y);
-        console.log('successfully reset bullet');
-        this.physics.arcade.moveToXY(bullet, shooter.targetX, shooter.targetY,
-          BasicGame.ENEMY_BULLET_VELOCITY);
-
-        console.log('set bullet target');
-      }
-    }, this);
-  },
-
-  explode: function(sprite){
-    if (this.explosionPool.countDead() === 0){
-      return;
-    }
-    var explosion = this.explosionPool.getFirstExists(false);
-    explosion.reset(sprite.x, sprite.y);
-    explosion.play('boom', 15, false, true);
-  },
-
-  enemyHit: function(bullet, enemy){
-    console.log(enemy.key);
-    bullet.kill();
-    this.damageEnemy(enemy, BasicGame.BULLET_DAMAGE);
-  },
-
-  damageEnemy: function(enemy, damage){
-    enemy.damage(damage);
-    if (enemy.alive){
-      enemy.play('hit');
-    } else {
-      this.explode(enemy);
-      this.addToScore(enemy.reward);
-      if (this.score > 2000){
-        this.displayEnd(true);
-      }
-    }
-  },
-
-  addToScore: function(reward){
-    this.score += reward;
-    this.scoreText.text = this.score;
-  },
-
-  playerHit: function(player, enemy){
-    if (this.ghostUntil && this.ghostUntil > this.time.now){
-      return;
-    }
-    this.damageEnemy(enemy, BasicGame.CRASH_DAMAGE);
-    var life = this.lives.getFirstAlive();
-    if (life !== null){
-      life.kill();
-      this.ghostUntil = this.time.now + BasicGame.PLAYER_GHOST_TIME;
-      player.play('ghost');
-    } else {
-      player.kill();
-      this.explode(player);
-      this.displayEnd(false);
-    }
-  },
-
-  render: function() {
-    //this.game.debug.body(this.enemy);
-    //this.game.debug.body(this.bullet);
-  },
-
-  quitGame: function (pointer) {
-
-    //  Here you should destroy anything you no longer need.
-    //  Stop music, delete sprites, purge caches, free resources, all that good stuff.
-
-    //  Then let's go back to the main menu.
-    this.state.start('MainMenu');
-
   }
 
 };
