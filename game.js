@@ -8,6 +8,7 @@ BasicGame.Game.prototype = {
     this.load.image('bullet', 'assets/bullet.png');
     this.load.spritesheet('enemy', 'assets/enemy.png', 32, 32);
     this.load.spritesheet('shooter', 'assets/shooting-enemy.png', 32, 32);
+    this.load.spritesheet('boss', 'assets/boss.png', 93, 75);
     this.load.spritesheet('explosion', 'assets/explosion.png', 32, 32);
     this.load.spritesheet('player', 'assets/player.png', 64, 64);
     this.load.image('titlepage', 'assets/titlepage.png');
@@ -102,6 +103,31 @@ BasicGame.Game.prototype = {
     });
 
     this.nextShooterAt = this.time.now + Phaser.Timer.SECOND * 5;
+
+
+
+    this.bossPool = this.add.group();
+    this.bossPool.enableBody = true;
+    this.bossPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.bossPool.createMultiple(1, 'boss');
+    this.bossPool.setAll('anchor.x', 0.5);
+    this.bossPool.setAll('anchor.y', 0.5);
+    this.bossPool.setAll('outOfBoundsKill', true);
+    this.bossPool.setAll('checkWorldBounds', true);
+    this.bossPool.setAll('reward', BasicGame.BOSS_REWARD, false, false, 0, true)
+
+    this.bossPool.forEach(function(boss){
+      boss.animations.add('fly', [0,1,2], 20, true);
+      boss.animations.add('hit', [3,1,3,2], 20, false);
+      boss.events.onAnimationComplete.add(function(e){
+        e.play('fly');
+      }, this);
+
+      boss.nextShotAt = 0;
+    });
+
+    this.boss = this.bossPool.getTop();
+    this.bossApproaching = false;
   },
 
   setupBullets: function(){
@@ -190,6 +216,14 @@ BasicGame.Game.prototype = {
       this.returnTime = null;
       this.displayReturnText();
     }
+
+    if (this.bossApproaching && this.boss.y >= BasicGame.BOSS_HOLDING_POSITION){
+      this.bossApproaching = false;
+      this.boss.body.velocity.y = 0;
+      this.boss.body.velocity.x = BasicGame.BOSS_X_VELOCITY;
+      this.boss.body.bounce.x = 1;
+      this.boss.body.collideWorldBounds = true;
+    }
   },
 
   checkCollisions: function(){
@@ -202,6 +236,15 @@ BasicGame.Game.prototype = {
     this.physics.arcade.overlap(this.player, this.enemyBulletPool, this.playerHit, null, this);
 
     this.physics.arcade.overlap(this.player, this.powerUpPool, this.collectPowerUp, null, this);
+
+    if (this.bossApproaching === false){
+      //player runs into boss
+      this.physics.arcade.overlap(this.player, this.boss, this.playerHit, null, this);
+
+      //bullet hits boss
+      this.physics.arcade.overlap(this.bulletPool, this.bossPool, this.enemyHit, null, this);
+
+    }
   },
 
   enemyHit: function(bullet, enemy){
@@ -228,6 +271,7 @@ BasicGame.Game.prototype = {
       this.explode(player);
       this.displayEnd(false);
     }
+
   },
 
   collectPowerUp: function(player, powerUp){
@@ -356,6 +400,17 @@ BasicGame.Game.prototype = {
     }
   },
 
+  spawnBoss: function(){
+    this.bossApproaching = true;
+    console.log('Resetting boss with health = ', BasicGame.BOSS_HEALTH);
+    this.boss.reset(this.game.width/2, 50, BasicGame.BOSS_HEALTH);
+    console.log(this.boss.health);
+    this.boss.body.velocity.y = BasicGame.BOSS_Y_VELOCITY;
+    this.boss.play('fly');
+    console.log('boss pool:');
+    console.log(this.bossPool);
+  },
+
   explode: function(sprite){
     if (this.explosionPool.countDead() === 0){
       return;
@@ -366,6 +421,9 @@ BasicGame.Game.prototype = {
   },
 
   damageEnemy: function(enemy, damage){
+    console.log('damaging enemy!');
+    console.log(enemy);
+    console.log(damage);
     enemy.damage(damage);
     if (enemy.alive){
       enemy.play('hit');
@@ -374,12 +432,12 @@ BasicGame.Game.prototype = {
       this.addToScore(enemy.reward);
       //drop powerup?
       this.spawnPowerUp(enemy);
-
-      if (this.score >= BasicGame.WINNING_SCORE){
+      if (enemy.key == 'boss'){
         this.displayEnd(true);
         this.shooterPool.destroy();
         this.enemyPool.destroy();
         this.enemyBulletPool.destroy();
+        this.bossPool.destroy();
       }
     }
   },
@@ -398,6 +456,12 @@ BasicGame.Game.prototype = {
   addToScore: function(reward){
     this.score += reward;
     this.scoreText.text = this.score;
+      console.log('bossPool.countDead = ' + this.bossPool.countDead());
+      if (this.score >= BasicGame.WINNING_SCORE && this.bossPool.countDead() === 1){
+
+        this.spawnBoss();
+
+      }
   },
 
   render: function() {
