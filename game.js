@@ -127,6 +127,7 @@ BasicGame.Game.prototype = {
     });
 
     this.boss = this.bossPool.getTop();
+    console.log(this.boss.nextShotAt);
     this.bossApproaching = false;
   },
 
@@ -368,6 +369,18 @@ BasicGame.Game.prototype = {
         //console.log('set bullet target');
       }
     }, this);
+
+    if (this.bossApproaching === false && this.boss.alive &&
+      this.boss.nextShotAt < this.time.now && this.enemyBulletPool.countDead() >= 10){
+      console.log('Firing boss bullet');
+      //boss can fire ten bullets
+      this.boss.nextShotAt = this.time.now + BasicGame.BOSS_SHOT_DELAY;
+      var bullet = this.enemyBulletPool.getFirstExists(false);
+      bullet.reset(this.boss.x, this.boss.y);
+      this.physics.arcade.moveToObject(bullet, this.player, BasicGame.BOSS_BULLET_VELOCITY);
+    }
+
+
   },
 
   spawnEnemies: function(){
@@ -402,13 +415,13 @@ BasicGame.Game.prototype = {
 
   spawnBoss: function(){
     this.bossApproaching = true;
-    console.log('Resetting boss with health = ', BasicGame.BOSS_HEALTH);
+    //console.log('Resetting boss with health = ', BasicGame.BOSS_HEALTH);
     this.boss.reset(this.game.width/2, 50, BasicGame.BOSS_HEALTH);
-    console.log(this.boss.health);
+    //console.log(this.boss.health);
     this.boss.body.velocity.y = BasicGame.BOSS_Y_VELOCITY;
     this.boss.play('fly');
-    console.log('boss pool:');
-    console.log(this.bossPool);
+    //console.log('boss pool:');
+    //console.log(this.bossPool);
   },
 
   explode: function(sprite){
@@ -421,9 +434,9 @@ BasicGame.Game.prototype = {
   },
 
   damageEnemy: function(enemy, damage){
-    console.log('damaging enemy!');
-    console.log(enemy);
-    console.log(damage);
+    //console.log('damaging enemy!');
+    //console.log(enemy);
+    //console.log(damage);
     enemy.damage(damage);
     if (enemy.alive){
       enemy.play('hit');
@@ -457,7 +470,7 @@ BasicGame.Game.prototype = {
     this.score += reward;
     this.scoreText.text = this.score;
       console.log('bossPool.countDead = ' + this.bossPool.countDead());
-      if (this.score >= BasicGame.WINNING_SCORE && this.bossPool.countDead() === 1){
+      if (this.score >= BasicGame.BOSS_APPEARANCE_SCORE && this.bossPool.countDead() === 1){
 
         this.spawnBoss();
 
