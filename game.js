@@ -13,12 +13,14 @@ BasicGame.Game.prototype = {
     this.load.spritesheet('player', 'assets/player.png', 64, 64);
     this.load.image('titlepage', 'assets/titlepage.png');
     this.load.image('powerup1', 'assets/powerup1.png');
+    this.load.image('bomb', 'assets/bomb.png');
   },
 
   create: function () {
     this.setupBackground();
     this.setupPlayer();
     this.setupPlayerIcons();
+    this.setupBombs();
     this.setupEnemies();
     this.setupBullets();
     this.setupExplosions();
@@ -56,11 +58,23 @@ BasicGame.Game.prototype = {
     }
   },
 
+  setupBombs: function(){
+    this.bombs = this.add.group();
+    for (var i = 0; i < BasicGame.BOMB_COUNT; i++){
+      var bomb = this.bombs.create(100 - (i*30), 30, 'bomb');
+      bomb.anchor.setTo(0.5, 0.5);
+    }
+    this.nextBombAt = 0;
+  },
+
   setupEnemies: function(){
+    this.enemyGroups = [];
+
     this.enemyDelay = BasicGame.SPAWN_ENEMY_DELAY;
     this.shooterDelay = BasicGame.SPAWN_SHOOTER_DELAY;
 
     this.enemyPool = this.add.group();
+    this.enemyGroups.push(this.enemyPool);
     this.enemyPool.enableBody = true;
     this.enemyPool.physicsBodyType = Phaser.Physics.ARCADE;
     this.enemyPool.createMultiple(100, 'enemy');
@@ -82,6 +96,7 @@ BasicGame.Game.prototype = {
     this.nextEnemyAt = 0;
 
     this.shooterPool = this.add.group();
+    this.enemyGroups.push(this.shooterPool);
     this.shooterPool.enableBody = true;
     this.shooterPool.physicsBodyType = Phaser.Physics.ARCADE;
     this.shooterPool.createMultiple(100, 'shooter');
@@ -104,9 +119,8 @@ BasicGame.Game.prototype = {
 
     this.nextShooterAt = this.time.now + Phaser.Timer.SECOND * 5;
 
-
-
     this.bossPool = this.add.group();
+    this.enemyGroups.push(this.bossPool);
     this.bossPool.enableBody = true;
     this.bossPool.physicsBodyType = Phaser.Physics.ARCADE;
     this.bossPool.createMultiple(1, 'boss');
@@ -276,9 +290,9 @@ BasicGame.Game.prototype = {
   },
 
   collectPowerUp: function(player, powerUp){
-    if (this.weaponLevel < 5){
+    //if (this.weaponLevel < 5){
       this.weaponLevel += 1;
-    }
+    //}
     console.log('PowerUp Collected: Weapon Level ' + this.weaponLevel);
     powerUp.kill();
   },
@@ -314,6 +328,10 @@ BasicGame.Game.prototype = {
         this.fire();
       }
     }
+
+    if (this.input.keyboard.isDown(Phaser.Keyboard.X)){
+      this.dropBomb();
+    }
   },
 
   fire: function(){
@@ -321,8 +339,6 @@ BasicGame.Game.prototype = {
       return;
     }
 
-
-    //if (this.weaponLevel == 0){
       if (this.bulletPool.countDead() === 0){
         return;
       }
@@ -330,7 +346,7 @@ BasicGame.Game.prototype = {
       var bullet = this.bulletPool.getFirstExists(false);
       bullet.reset(this.player.x, this.player.y - 20);
       bullet.body.velocity.y = -BasicGame.BULLET_VELOCITY;
-    //} else {
+
       if (this.bulletPool.countDead() < this.weaponLevel*2){
         return;
       }
@@ -346,10 +362,24 @@ BasicGame.Game.prototype = {
         bullet.reset(this.player.x, this.player.y - 20);
         this.physics.arcade.velocityFromAngle(-90 + bulletSpread*(i+1), BasicGame.BULLET_VELOCITY, bullet.body.velocity);
       }
+  },
 
-    //}
+  dropBomb: function(){
+    var bomb = this.bombs.getFirstAlive();
+    if (bomb && this.time.now > this.nextBombAt){
+      this.nextBombAt = this.time.now + BasicGame.BOMB_DELAY;
+      bomb.kill();
 
+      this.enemyGroups.forEach(function(group){
+        group.forEachAlive(function(enemy){
+          this.damageEnemy(enemy, 50);
+        }, this);
+      }, this);
 
+      this.enemyBulletPool.forEachAlive(function(bullet){
+        bullet.kill();
+      }, this);
+    }
   },
 
   enemyFire: function(){
@@ -475,7 +505,9 @@ BasicGame.Game.prototype = {
   },
 
   spawnPowerUp: function(enemy){
-    if (this.powerUpPool.countDead() <= 0 || this.weaponLevel >= 5){
+    console.log('living power ups:' + this.powerUpPool.countLiving());
+    if (this.powerUpPool.countDead() <= 0 || 
+      this.powerUpPool.countLiving() + this.weaponLevel >= 3){
       return;
     }
     if (this.rnd.frac() < enemy.dropRate){
@@ -490,9 +522,7 @@ BasicGame.Game.prototype = {
     this.scoreText.text = this.score;
       console.log('bossPool.countDead = ' + this.bossPool.countDead());
       if (this.score >= BasicGame.BOSS_APPEARANCE_SCORE && this.bossPool.countDead() === 1){
-
         this.spawnBoss();
-
       }
   },
 

@@ -16,6 +16,7 @@ var BasicGame = {
   SPAWN_SHOOTER_DELAY: Phaser.Timer.SECOND * 3,
 
   SHOT_DELAY: Phaser.Timer.SECOND * 0.1,
+  BOMB_DELAY: Phaser.Timer.SECOND * 3,
   SHOOTER_SHOT_DELAY: Phaser.Timer.SECOND * 2,
   BOSS_SHOT_DELAY: Phaser.Timer.SECOND * 2,
 
@@ -42,6 +43,7 @@ var BasicGame = {
   BOSS_HOLDING_POSITION: 80,
 
   PLAYER_EXTRA_LIVES: 3,
+  BOMB_COUNT: 3,
   PLAYER_GHOST_TIME: Phaser.Timer.SECOND * 3,
 
   INSTRUCTION_EXPIRE: Phaser.Timer.SECOND * 10,
