@@ -371,13 +371,32 @@ BasicGame.Game.prototype = {
     }, this);
 
     if (this.bossApproaching === false && this.boss.alive &&
-      this.boss.nextShotAt < this.time.now && this.enemyBulletPool.countDead() >= 10){
-      console.log('Firing boss bullet');
+      this.boss.nextShotAt < this.time.now && this.enemyBulletPool.countDead() >= 11){
+      console.log('Boss Firing');
       //boss can fire ten bullets
       this.boss.nextShotAt = this.time.now + BasicGame.BOSS_SHOT_DELAY;
-      var bullet = this.enemyBulletPool.getFirstExists(false);
-      bullet.reset(this.boss.x, this.boss.y);
-      this.physics.arcade.moveToObject(bullet, this.player, BasicGame.BOSS_BULLET_VELOCITY);
+
+      var middleBullet = this.enemyBulletPool.getFirstExists(false);
+      middleBullet.reset(this.boss.x, this.boss.y+10)
+      this.physics.arcade.moveToXY(middleBullet, this.player.x, this.player.y, BasicGame.BOSS_BULLET_VELOCITY);
+      for (var i = 0; i < 5; i++){
+        var bulletSpread = (this.boss.health > BasicGame.BOSS_HEALTH*.5) ? 3 : 25;
+
+        var leftBullet = this.enemyBulletPool.getFirstExists(false);
+        leftBullet.reset(this.boss.x - 3*(i+1), this.boss.y+10);
+
+        var rightBullet = this.enemyBulletPool.getFirstExists(false);
+        rightBullet.reset(this.boss.x + 3*(i+1), this.boss.y+10);
+        
+
+        //this.physics.arcade.moveToObject(rightBullet, this.player, BasicGame.BOSS_BULLET_VELOCITY);
+        //this.physics.arcade.moveToObject(leftBullet, this.player, BasicGame.BOSS_BULLET_VELOCITY);
+        this.physics.arcade.moveToXY(rightBullet, this.player.x + bulletSpread*(1+i), this.player.y, BasicGame.BOSS_BULLET_VELOCITY); 
+        this.physics.arcade.moveToXY(leftBullet, this.player.x - bulletSpread*(1+i), this.player.y, BasicGame.BOSS_BULLET_VELOCITY);
+      }
+//      var bullet = this.enemyBulletPool.getFirstExists(false);
+//      bullet.reset(this.boss.x, this.boss.y);
+//      this.physics.arcade.moveToObject(bullet, this.player, BasicGame.BOSS_BULLET_VELOCITY);
     }
 
 
