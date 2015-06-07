@@ -14,14 +14,16 @@ BasicGame.Game.prototype = {
     this.load.image('titlepage', 'assets/titlepage.png');
     this.load.image('powerup1', 'assets/powerup1.png');
     this.load.image('bomb', 'assets/bomb.png');
+    this.load.spritesheet('destroyer', 'assets/destroyer.png', 32, 174);
   },
 
   create: function () {
     this.setupBackground();
+    this.setupEnemies();
     this.setupPlayer();
     this.setupPlayerIcons();
     this.setupBombs();
-    this.setupEnemies();
+    
     this.setupBullets();
     this.setupExplosions();
     this.setupPowerUps();
@@ -70,6 +72,30 @@ BasicGame.Game.prototype = {
   setupEnemies: function(){
     this.enemyGroups = [];
 
+
+    this.destroyerPool = this.add.group();
+    this.enemyGroups.push(this.destroyerPool);
+    this.destroyerPool.enableBody = true;
+    this.destroyerPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.destroyerPool.createMultiple(100, 'destroyer');
+    this.destroyerPool.setAll('anchor.x', 0.5);
+    this.destroyerPool.setAll('anchor.y', 0.5);
+    this.destroyerPool.setAll('outOfBoundsKill', true);
+    this.destroyerPool.setAll('checkWorldBounds', true);
+    this.destroyerPool.setAll('reward', BasicGame.DESTROYER_REWARD, false, false, 0, true)
+    this.destroyerPool.setAll('dropRate', BasicGame.DESTROYER_DROP_RATE, false, false, 0, true);
+
+    this.destroyerPool.forEach(function(destroyer){
+      destroyer.animations.add('cruise', [0,1], 3, true);
+      destroyer.animations.add('hit', [2,0,2,1], 3, false);
+      destroyer.events.onAnimationComplete.add(function(e){
+        e.play('cruise');
+      }, this);
+      destroyer.nextShotAt = 0;
+    });
+    this.nextDestroyerAt = this.time.now + BasicGame.FIRST_DESTROYER_TIME;
+
+
     this.enemyDelay = BasicGame.SPAWN_ENEMY_DELAY;
     this.shooterDelay = BasicGame.SPAWN_SHOOTER_DELAY;
 
@@ -116,8 +142,17 @@ BasicGame.Game.prototype = {
 
       shooter.nextShotAt = 0;
     });
-
     this.nextShooterAt = this.time.now + Phaser.Timer.SECOND * 5;
+
+
+
+
+    
+
+
+
+
+
 
     this.bossPool = this.add.group();
     this.enemyGroups.push(this.bossPool);
@@ -459,6 +494,17 @@ BasicGame.Game.prototype = {
     shooter.rotation = this.physics.arcade.moveToXY(shooter, shooter.targetX, shooter.targetY,
       this.rnd.integerInRange(BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY)
       ) - Math.PI/2;
+    }
+
+    //spawn destroyers
+    if (this.destroyerPool.countDead() > 0 &&
+      this.time.now > this.nextDestroyerAt){
+      console.log('spawning destroyer');
+      var destroyer = this.destroyerPool.getFirstExists(false);
+      this.nextDestroyerAt = this.time.now + BasicGame.SPAWN_DESTROYER_DELAY;
+      destroyer.reset(this.rnd.integerInRange(50, this.game.width-50), -80, BasicGame.DESTROYER_HEALTH);
+      destroyer.body.velocity.y = BasicGame.DESTROYER_SPEED;
+      destroyer.play('cruise');
     }
   },
 
