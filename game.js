@@ -198,7 +198,8 @@ BasicGame.Game.prototype = {
   setupText: function(){
     this.instructions = this.add.text(this.game.width / 2, this.game.height - 100, 
       'Use Arrow Keys to Move, Press Z to Fire\n' + 
-      'Tapping/clicking does both', 
+      'Use X to drop Bomb\n' +
+      'Touch Screen Fires and Moves', 
       { font: '20px monospace', fill: '#fff', align: 'center' }
     );
     this.instructions.anchor.setTo(0.5, 0.5);
